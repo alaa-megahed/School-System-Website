@@ -1,5 +1,10 @@
+<<<<<<< HEAD:table-creation.sql
 -- DROP database School_System; 
  CREATE DATABASE School_System;
+=======
+DROP DATABASE School_System;
+CREATE DATABASE School_System;
+>>>>>>> 1149501261359a042d1abd718538e19586a176bb:db/table-creation.sql
 USE School_System; 
 
 
@@ -59,13 +64,13 @@ CREATE TABLE Students (
 	id INT DEFAULT NULL,
 	username VARCHAR(100),
 	password VARCHAR(20),
-	school_id INT DEFAULT NULL, 
+	school_id INT DEFAULT NULL,
 	first_name VARCHAR(100) NOT NULL,
 	last_name VARCHAR(100) NOT NULL, 
 	gender VARCHAR(10),
 	birthdate DATE,
-	age INT AS (YEAR('2016-1-1') - YEAR(birthdate)), 
-	grade INT AS (age - 5), 
+	age INT,
+	grade INT,
 	level VARCHAR(100), 
 	CHECK (level = 'elementary' or level = 'middle' or level = 'high'),
 	FOREIGN KEY (school_id) REFERENCES Schools(id) ON DELETE SET NULL 
@@ -78,7 +83,7 @@ CREATE TABLE Parents (
 	password VARCHAR(20),
 	first_name VARCHAR(100), 
 	last_name VARCHAR(100), 
-	email VARCHAR(100), 
+	email VARCHAR(100) UNIQUE,
 	address VARCHAR(600), 
 	home_phone VARCHAR(100)
 ); 
@@ -141,7 +146,7 @@ CREATE TABLE Employees (
 	address VARCHAR(600), 
 	birthdate DATE, 
 	salary INT,  
-	age INT AS (2016 - YEAR(birthdate)), 
+	age INT,
 	FOREIGN KEY (school_id) REFERENCES Schools(id) ON DELETE SET NULL
 ); 
 
@@ -156,7 +161,7 @@ CREATE TABLE Teachers
 	(
 		id int PRIMARY KEY,
 		start_date DATE,
-		exp_years INT AS (YEAR('2016-11-9') - YEAR(start_date)),
+		exp_years INT,
 		FOREIGN KEY (id) REFERENCES Employees(id) ON DELETE CASCADE
 	);
 
@@ -306,10 +311,12 @@ CREATE TABLE Solutions
 		course_code int,
 		school_id int,
 		solution varchar(2000),
+        grade int default null,
 		FOREIGN KEY (student_ssn) REFERENCES Students(ssn) ON DELETE CASCADE,
 		FOREIGN KEY (assignment_number, course_code, school_id) REFERENCES Assignments(assignment_number, course_code, school_id) ON DELETE CASCADE
 	);
 
+-- call teacher_grade_solutions(6,1,1107,);
 CREATE TABLE Teachers_Grade_Solutions
 	(
 		PRIMARY KEY (student_ssn, assignment_number, course_code, school_id),
@@ -356,5 +363,70 @@ CREATE TABLE Parents_Reply_Reports
 		FOREIGN KEY (parent_id) REFERENCES Parents(id) ON DELETE CASCADE,
 		FOREIGN KEY (report_date, student_ssn, teacher_id) REFERENCES Reports(report_date, student_ssn, teacher_id) ON DELETE CASCADE
 	);
+ DELIMITER  //
+
+CREATE TRIGGER EmployeesAge BEFORE INSERT
+	ON Employees
+	FOR EACH ROW BEGIN
+		SET New.age = YEAR(CURDATE()) - YEAR(New.birthdate);
+
+END//
+
+ CREATE TRIGGER StudentsAge BEFORE INSERT
+	ON Students
+	FOR EACH ROW BEGIN
+		SET New.age = YEAR(CURDATE()) - YEAR(New.birthdate);
+        SET New.grade = YEAR(CURDATE()) - YEAR(New.birthdate) - 5;
+        IF(New.grade >= 1 AND NEW.grade <= 6)
+		THEN SET New.level = 'elementary';
+		ELSEIF (New.grade <= 9)
+			THEN SET New.level = 'middle';
+		ELSE
+			SET New.level = 'high';
+	END IF;
+	IF(New.grade >= 1 AND NEW.grade <= 6)
+		THEN SET New.level = 'elementary';
+		ELSEIF (New.grade <= 9)
+			THEN SET New.level = 'middle';
+		ELSE
+			SET New.level = 'high';
+	END IF;
+
+END//
+
+-- CREATE TRIGGER StudentGrade BEFORE INSERT
+-- 	ON Students
+-- 	FOR EACH ROW
+-- 		SET New.grade = YEAR(CURDATE()) - YEAR(New.birthdate) - 5;
+
+CREATE TRIGGER TeachersExpYears BEFORE INSERT
+	ON Teachers
+	FOR EACH ROW BEGIN
+	IF(New.start_date IS NOT NULL ) THEN
+			SET New.exp_years = (YEAR(CURDATE()) - YEAR(New.start_date));
+	END IF;
+END //
+
+CREATE TRIGGER TeachersExpYearsUpdate BEFORE UPDATE
+	ON Teachers
+	FOR EACH ROW BEGIN
+	IF(New.start_date IS NOT NULL ) THEN
+			SET New.exp_years = (YEAR(CURDATE()) - YEAR(New.start_date));
+	END IF;
+END //
+
+-- CREATE TRIGGER StudentLevel BEFORE INSERT
+-- 	ON Students
+-- 	FOR EACH ROW BEGIN
+-- 	IF(New.grade >= 1 AND NEW.grade <= 6)
+-- 		THEN SET New.level = 'elementary';
+-- 		ELSEIF (New.grade <= 9)
+-- 			THEN SET New.level = 'middle';
+-- 		ELSE
+-- 			SET New.level = 'high';
+-- 	END IF;
+-- END //
+
+DELIMITER ;
 
 

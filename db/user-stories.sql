@@ -1,4 +1,4 @@
- DELIMITER //
+DELIMITER //
 
 -- *** SYSTEM ADMIN USER STORY*** 
 
@@ -36,7 +36,7 @@ BEGIN
  INSERT INTO Employees (first_name, middle_name, last_name, username, password, email, gender, address, birthdate) VALUES  
  (first_name, middle_name, last_name, username, password, email, gender, address, birthdate);
  SET @emp_id = LAST_INSERT_ID(); 
- INSERT INTO Administrators (id) VALUES (@emp_id); 
+ INSERT INTO Administrators (id) VALUES (@emp_id);
 END //
 
 
@@ -70,51 +70,68 @@ BEGIN
 END //
 
 -- ***SYSTEM USER*** 
-
-CREATE PROCEDURE search_school(IN name VARCHAR(20), IN type VARCHAR(20), IN address VARCHAR(100))
+-- drop procedure search_school;
+CREATE PROCEDURE search_school(IN keyword VARCHAR(100))
 BEGIN
-	SELECT * 
+	SELECT S.id, S.name,S.type, S.address 
 	FROM Schools S 
-	WHERE S.name = name OR S.type = type OR S.address = address; 
+	WHERE S.name = keyword OR S.type = keyword OR S.address = keyword; 
 END //
 
+-- drop PROCEDURE user_view_school_info;
 CREATE PROCEDURE user_view_school_info(IN school_id INT) 
 BEGIN
-	SELECT S.name,  S.address, S.mission, S.vision, S.language, S.general_info, S.fees, S.type
+	SELECT S.name,  S.address, S.mission, S.vision, S.language, S.general_info, S.fees, S.type, S.email
 	FROM Schools S 
 	WHERE S.id = school_id; 
+END //
 
+CREATE PROCEDURE user_view_school_levels(IN school_id INT) 
+BEGIN
 	SELECT L.level 
 	FROM Level_School L 
-	WHERE L.school_id = school_id; 
+	WHERE L.school_id = school_id;
+END //
 
-	SELECT E.first_name, E.last_name
+CREATE PROCEDURE user_view_school_phones(IN school_id INT) 
+BEGIN
+	SELECT P.phone
+	FROM Phone_School P 
+	WHERE P.school_id = school_id;
+END //
+
+CREATE PROCEDURE user_view_school_teachers(IN school_id INT) 
+BEGIN
+	SELECT CONCAT_WS('',E.first_name, ' ',E.last_name) AS teacher_name
 	FROM Employees E 
 	INNER JOIN Teachers T ON E.id = T.id
 	WHERE E.school_id = school_id; 
+END //
 
-	SELECT P.first_name, P.last_name, R.review
+CREATE PROCEDURE user_view_school_reviews(IN school_id INT) 
+BEGIN
+	SELECT R.review, CONCAT_WS('',P.first_name, ' ',P.last_name) AS parent_name
 	FROM Parent_Review_School R
 	INNER JOIN Parents P ON P.id = R.parent_id
 	WHERE R.school_id = school_id; 
 END //
 
-CREATE PROCEDURE view_school_by_level()
+CREATE PROCEDURE user_view_announcement(IN school_id INT) 
 BEGIN
-	SELECT S.* , L.level
-	FROM Schools S 
-	INNER JOIN Level_School L ON L.school_id = S.id
-	WHERE L.level = 'elementary'; 
+  SELECT A.title, A.type, A.description, A.announcement_date
+  FROM Announcements A
 
-	SELECT S.* , L.level
-	FROM Schools S 
-	INNER JOIN Level_School L ON L.school_id = S.id
-	WHERE L.level = 'middle';
+  WHERE A.school_id = school_id ;
+ -- AND DAY(CURDATE() - A.announcement_date) <= 10; 
+END //
 
-	SELECT S.* , L.level
+-- drop procedure view_school_by_level;
+CREATE PROCEDURE view_school_by_level(IN level VARCHAR(20))
+BEGIN
+	SELECT S.id, S.name, S.type, S.address
 	FROM Schools S 
 	INNER JOIN Level_School L ON L.school_id = S.id
-	WHERE L.level = 'high';
+	WHERE L.level = level; 
 END //
 
 -- ***SCHOOL ADMIN USER STORY***
@@ -167,7 +184,6 @@ END	//
   		INNER JOIN School_Apply_Student A ON  A.student_ssn = S.ssn 
   		WHERE A.school_id = school_id AND A.status = 'pending'; 
   END //
-
 
 CREATE PROCEDURE verify_applied_student(IN admin_id INT, student_ssn INT, IN password VARCHAR(20))
 BEGIN  
@@ -425,11 +441,23 @@ CREATE PROCEDURE get_admin_school(IN admin_id INT, OUT school_id INT)
 
 -- ***PARENT USER STORY***
 
-CREATE PROCEDURE parent_signup ( IN username VARCHAR(20), password VARCHAR(20), first_name VARCHAR(20), last_name VARCHAR(20), email VARCHAR(20), 
-address VARCHAR(120), home_phone VARCHAR(15))
+-- DELIMITER // 
+	CREATE PROCEDURE search_parent(IN username VARCHAR(100), password VARCHAR(20))
+		SELECT P.*
+		FROM Parents P 
+		WHERE P.username = username AND P.password = password;
+	//
+
+	
+-- DELIMITER ; 
+
+# DROP PROCEDURE parent_signup;
+CREATE PROCEDURE parent_signup ( IN username VARCHAR(100), password VARCHAR(20), first_name VARCHAR(100), last_name VARCHAR(100), email VARCHAR(100),
+address VARCHAR(600), home_phone VARCHAR(100))
 BEGIN
   INSERt INTO Parents (username, password, first_name, last_name, email, address, home_phone) 
-  VALUES (username, password, first_name, last_name, email, address, home_phone); 
+  VALUES (username, password, first_name, last_name, email, address, home_phone);
+  SELECT LAST_INSERT_ID();
 END //
 
 CREATE PROCEDURE parent_add_mobile (IN parent_id INT, mobile VARCHAR(15))
@@ -451,41 +479,46 @@ BEGIN
   END IF; 
   
 
-  INSERT INTO School_Apply_Student(school_id, student_ssn) VALUES (school_id, student_ssn); 
+  INSERT INTO School_Apply_Student(school_id, student_ssn, parent_id, status)
+  VALUES (school_id, student_ssn, parent_id, 'pending');
 END //
 
-
-CREATE PROCEDURE parent_view_accepted (IN parent_id INT) 
+CREATE PROCEDURE parent_view_accepted (IN parent_id INT, child_ssn INT)
 BEGIN
-  SELECT Sc.name, St.first_name, St.last_name
+  SELECT Sc.name, Sc.type, Sc.fees, Sc.id
   FROM Schools Sc 
   INNER JOIN School_Apply_Student A ON Sc.id = A.school_id
-  INNER JOIN Students St ON St.ssn = A.student_ssn
-  WHERE A.status = 'accepted' AND St.ssn IN (SELECT P.child_ssn FROM  Parent_Of_Student P WHERE P.parent_id = parent_id)
-  GROUP BY Sc.name, St.first_name, St.last_name; 
+  WHERE A.parent_id = parent_id AND  A.status = 'accepted' AND A.student_ssn = child_ssn;
 END // 
 
 
-CREATE PROCEDURE parent_enroll_child(IN parent_id INT, child_ssn INT, school_id INT) 
+CREATE PROCEDURE parent_enroll_child(IN parent_id INT, child_ssn INT, school_id INT)
 BEGIN
-   IF EXISTS (SELECT * FROM School_Apply_Student P WHERE P.parent_id = parent_id AND P.student_ssn = child_ssn AND P.school_id = school_id AND P.status = 'accepted') 
+   IF EXISTS (SELECT * FROM School_Apply_Student P WHERE P.parent_id = parent_id AND P.student_ssn = child_ssn AND P.school_id = school_id AND P.status = 'accepted')
    THEN
     UPDATE Students S
     SET S.school_id = school_id
-    WHERE S.ssn = child_ssn; 
+    WHERE S.ssn = child_ssn;
    END IF; 
 
 END //
 
 CREATE PROCEDURE view_children_schools (IN parent_id INT) 
 BEGIN
-  SELECT Sc.name, St.first_name, St.last_name
+  SELECT Sc.id, Sc.name, St.first_name, St.last_name
   FROM Parent_Of_Student POS 
   INNER JOIN Students St ON St.ssn = POS.child_ssn
   INNER JOIN Schools Sc ON St.school_id = Sc.id
   WHERE POS.parent_id = parent_id
   ORDER BY Sc.name; 
 END //
+
+CREATE PROCEDURE parent_view_reviews(IN parent_id INT )
+  SELECT PRS.school_id, S.name, PRS.review
+  FROM Parent_Review_School PRS
+  INNER JOIN Schools S ON PRS.school_id = S.id
+  WHERE PRS.parent_id = parent_id;
+//
 
 CREATE PROCEDURE parent_view_announcement(IN parent_id INT) 
 BEGIN
@@ -497,10 +530,10 @@ BEGIN
   WHERE POS.parent_id = parent_id AND DAY(CURDATE() - A.announcement_date) <= 10; 
 END //
 
-
+# DROP PROCEDURE parent_view_report;
 CREATE PROCEDURE parent_view_report(IN parent_id INT, IN child_ssn INT)
 BEGIN
-  SELECT E.first_name, E.last_name, S.first_name, S.last_name, R.comment
+  SELECT E.first_name, E.last_name, R.comment, R.report_date, E.id
   FROM Reports R 
   INNER JOIN Employees E ON E.id = R.teacher_id 
   INNER JOIN Parent_Of_Student P ON R.student_ssn = P.child_ssn
@@ -520,6 +553,14 @@ BEGIN
     VALUES (parent_id, report_date, child_ssn, teacher_id, reply); 
   END IF; 
 END //
+
+CREATE PROCEDURE parent_view_child_teachers(IN child_ssn INT)
+  SELECT CT.teacher_id, E.first_name, E.last_name, CT.course_code, C.name, C.grade
+  FROM Courses_TaughtTo_Students_By_Teachers CT
+  INNER JOIN Employees E ON CT.teacher_id = E.id
+  INNER JOIN Courses C ON CT.course_code = C.code
+  WHERE CT.student_ssn = child_ssn;
+//
 
 CREATE PROCEDURE parent_rate_teacher (IN parent_id INT, teacher_id INT, rating INT)
 BEGIN
@@ -625,17 +666,20 @@ BEGIN
   INSERT INTO Teachers (id) VALUES (@emp_id);
 END //
 
+
 CREATE PROCEDURE teacher_view_courses(IN teacher_id INT)
 BEGIN
-  SELECT C.name, C.level, C.grade
+  SELECT DISTINCT C.code, C.name, C.level, C.grade
   FROM Teachers T
   INNER JOIN Courses_TaughtTo_Students_By_Teachers CT ON T.id = CT.teacher_id  
   INNER JOIN Courses C  ON C.code = CT.course_code
   WHERE T.id = teacher_id
-  GROUP BY level AND grade;
+  ORDER BY C.grade;
+  -- ORDER BY C.grade;
+   
 END // 
-
-CREATE PROCEDURE teacher_post_assignment(IN teacher_id INT, IN course_code INT, IN post_date DATE, IN due_date DATE, IN content VARCHAR(1000), IN assignment_number INT)
+-- drop PROCEDURE teacher_post_assignment;
+CREATE PROCEDURE teacher_post_assignment(IN teacher_id INT, IN course_code INT, IN post_date DATE, IN due_date DATE, IN content VARCHAR(2000), IN assignment_number INT)
 BEGIN
   DECLARE school_id INT;
   SELECT E.school_id INTO school_id
@@ -644,18 +688,42 @@ BEGIN
   INSERT INTO Assignments (assignment_number, course_code, school_id, post_date, due_date, content, teacher_id)
    VALUES (assignment_number, course_code, school_id, post_date, due_date, content, teacher_id);
 END //
+-- CREATE PROCEDURE unique_assignment(IN teacher_id INT, IN course_code INT, IN assignment_number INT, OUT is_unique BIT)
+-- BEGIN
+-- DECLARE school_id INT;
+--   SELECT E.school_id INTO school_id
+--   FROM Employees E
+--   WHERE id = teacher_id;
+-- IF(NOT EXISTS (SELECT * FROM Assignments A WHERE (A.assignment_number = assignment_number AND A.course_code = course_code AND A.school_id = school_id)))
+-- THEN 
+-- SET is_unique = 1; 
+-- ELSE
+-- SET is_unique = 0;
+-- END IF;
 
-
-CREATE PROCEDURE teacher_view_solutions(IN teacher_id INT)
+-- END //
+-- drop procedure teacher_assignments;
+CREATE PROCEDURE teacher_assignments(IN teacher_id INT, IN course_code INT)
 BEGIN
-  SELECT SOL.assignment_number, SOL.course_code, S.id, SOL.solution
+DECLARE school_id INT;
+  SELECT E.school_id INTO school_id
+  FROM Employees E
+  WHERE E.id = teacher_id;
+SELECT A.assignment_number,A.due_date,A.content,A.post_date
+FROM Assignments A
+WHERE A.course_code = course_code AND A.school_id = school_id;
+END //
+-- drop procedure teacher_view_solutions;
+CREATE PROCEDURE teacher_view_solutions(IN teacher_id INT, IN assignment_number INT, IN course_code INT)
+BEGIN
+  SELECT CONCAT_WS('',S.first_name, ' ',S.last_name) AS student_name,S.id, SOL.solution, SOL.grade
   FROM Solutions SOL 
   INNER JOIN Students S ON SOL.student_ssn = S.ssn
   INNER JOIN Assignments A ON A.assignment_number = SOL.assignment_number AND A.course_code = SOL.course_code AND A.school_id = SOL.school_id
-  WHERE A.teacher_id = teacher_id
+  WHERE A.teacher_id = teacher_id AND A.assignment_number = assignment_number AND A.course_code = course_code
   ORDER BY S.id;
 END //
-
+-- drop procedure teacher_grade_solutions;
 CREATE PROCEDURE teacher_grade_solutions(IN teacher_id INT, IN student_id INT, IN assignment_number INT, IN course_code INT, IN grade INT)
 BEGIN
   DECLARE school_id INT;
@@ -668,8 +736,11 @@ BEGIN
   FROM Students S 
   WHERE S.school_id = school_id AND S.id = student_id;  
 
-  INSERT INTO Teachers_Grade_Solutions (student_ssn, assignment_number, course_code, school_id, grade, teacher_id) 
-  VALUES (student_ssn, assignment_number, course_code, school_id, grade, teacher_id);
+  UPDATE Solutions S
+  SET S.grade = grade 
+  WHERE S.student_ssn = student_ssn AND S.assignment_number = assignment_number AND S.course_code = course_code;
+  -- INSERT INTO Teachers_Grade_Solutions (student_ssn, assignment_number, course_code, school_id, grade, teacher_id) 
+  -- VALUES (student_ssn, assignment_number, course_code, school_id, grade, teacher_id);
 END //
 
 CREATE PROCEDURE teacher_delete_assignment(IN teacher_id INT, IN courseCode INT, IN assignment_num INT)
@@ -683,17 +754,12 @@ BEGIN
   WHERE assignment_number = assignment_num AND course_code = courseCode AND school_id = schoolID;
 END //
 
-CREATE PROCEDURE teacher_write_report(IN teacher_id INT, IN student_id INT, IN report_date DATE, IN comment VARCHAR(500))
+CREATE PROCEDURE teacher_write_report(IN teacher_id INT, IN student_ssn INT, IN report_date DATE, IN comment VARCHAR(500))
 BEGIN
   DECLARE school_id INT;
-  DECLARE student_ssn INT;
   SELECT E.school_id INTO school_id
   FROM Employees E
   WHERE E.id = teacher_id;
-
-  SELECT S.ssn INTO student_ssn
-  FROM Students S
-  WHERE S.id = student_id AND S.school_id = school_id;
 
   IF EXISTS (SELECT * FROM Courses_TaughtTo_Students_By_Teachers CT WHERE CT.student_ssn = student_ssn AND CT.teacher_id = teacher_id)
   THEN 
@@ -704,7 +770,7 @@ END //
 
 CREATE PROCEDURE teacher_view_questions(IN teacher_id INT, IN course_code INT)
 BEGIN 
-  SELECT S.id, S.first_name, S.last_name, Q.q_id, Q.content, Q.course_code
+  SELECT Q.q_id, Q.content, CONCAT_WS('',S.first_name, ' ',S.last_name) AS student_name
   FROM Questions Q INNER JOIN Students S ON Q.student_ssn = S.ssn
   WHERE Q.course_code = course_code
    AND EXISTS (SELECT * FROM Courses_TaughtTo_Students_By_Teachers CT WHERE CT.teacher_id = teacher_id AND CT.course_code = course_code);
@@ -713,7 +779,7 @@ END //
 CREATE PROCEDURE teacher_answer_questions(IN teacher_id INT, IN course_code INT, IN q_id INT, IN answer VARCHAR(250))
 BEGIN
   DECLARE count INT DEFAULT 0;
-  SELECT COUNT DISTINCIT INTO count
+  SELECT COUNT(DISTINCT A.answer_sub_id) INTO count
   FROM Answers A
   WHERE A.course_code = course_code AND A.q_id = q_id;
 
@@ -721,13 +787,34 @@ BEGIN
 
 END //
 
-CREATE PROCEDURE teacher_view_students(IN teacher_id INT)
+-- CREATE PROCEDURE teacher_view_students(IN teacher_id INT)
+-- BEGIN
+--   SELECT S.ssn, S.first_name, S.last_name, S.id, S.grade, S.level, S.gender, S.birthdate, S.age
+--   FROM Students S
+--   WHERE EXISTS (SELECT * FROM Courses_TaughtTo_Students_By_Teachers CT WHERE CT.teacher_id = teacher_id AND CT.student_ssn = S.ssn)
+--   GROUP BY S.grade
+--   ORDER BY S.first_name, S.last_name;
+-- END //
+
+-- drop procedure teacher_view_students_in_grade;
+CREATE PROCEDURE teacher_view_students_in_grade(IN teacher_id INT, IN grade INT)
 BEGIN
-  SELECT S.first_name, S.last_name, S.id, S.username, S.ssn, S.grade, S.level, S.gender, S.birthdate, S.age
+  SELECT S.ssn, CONCAT_WS('',S.first_name, ' ',S.last_name) AS student_name, S.id, S.gender, S.age
   FROM Students S
-  WHERE EXISTS (SELECT * FROM Courses_TaughtTo_Students_By_Teachers CT WHERE CT.teacher_id = teacher_id AND CT.student_ssn = S.ssn)
-  GROUP BY S.grade
-  ORDER BY S.first_name, S.last_name;
+  WHERE EXISTS (SELECT * FROM Courses_TaughtTo_Students_By_Teachers CT WHERE CT.teacher_id = teacher_id AND CT.student_ssn = S.ssn) 
+  AND S.grade = grade
+  GROUP BY S.ssn
+  ORDER BY student_name;
+END //
+
+
+-- drop procedure teacher_grades;
+CREATE PROCEDURE teacher_grades(IN teacher_id INT)
+BEGIN
+SELECT DISTINCT C.grade AS grade
+FROM Courses C
+WHERE EXISTS (SELECT * FROM Courses_TaughtTo_Students_By_Teachers CT WHERE CT.teacher_id = teacher_id AND CT.course_code = C.code)
+ORDER BY C.grade;
 END //
 
 CREATE PROCEDURE teacher_view_students_without_activities(IN teacher_id INT)
@@ -768,7 +855,13 @@ BEGIN
 
   END //
 
-
+CREATE PROCEDURE search_teacher (IN username VARCHAR(100), password VARCHAR(20))
+BEGIN
+  SELECT E.*, T.start_date, T.exp_years
+		FROM Employees E
+      INNER JOIN Teachers T ON E.id = T.id
+		WHERE E.username = username AND E.password = password;
+END //
   
  
 
