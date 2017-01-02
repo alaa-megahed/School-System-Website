@@ -47,8 +47,8 @@ CALL parent_view_accepted(6);
 CALL parent_enroll_child(6, 612065, 1); 
 CALL parent_enroll_child(6, 623019, 5); 
 
-CALL verify_applied_student(10, 612065, '12345password'); 
-CALL verify_applied_student(11, 623019, '123456password');  
+ CALL verify_applied_student(10, 612065, '12345password'); 
+ CALL verify_applied_student(11, 623019, '123456password');  
 
 CALL delete_employee(11, 6); 
 

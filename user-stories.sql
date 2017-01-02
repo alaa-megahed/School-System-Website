@@ -1,6 +1,6 @@
  DELIMITER //
 
-*** SYSTEM ADMIN USER STORY*** 
+-- *** SYSTEM ADMIN USER STORY*** 
 
 CREATE PROCEDURE create_school (IN name VARCHAR(30), IN address VARCHAR(100), IN phone VARCHAR(15),IN  mission VARCHAR(120), IN vision VARCHAR(120), IN language VARCHAR(20), IN general_info VARCHAR(120), IN fees INT, IN type VARCHAR(20), IN email VARCHAR(50)) DETERMINISTIC 
 BEGIN 
@@ -176,10 +176,10 @@ BEGIN
 	CALL get_admin_school(admin_id, school_id); 
 	IF EXISTS (SELECT * FROM  School_Apply_Student SAP WHERE SAP.student_ssn = student_ssn AND SAP.school_id = school_id AND SAP.status = 'accepted') 
 	THEN BEGIN
-	SELECT MAX(id) INTO last_id
+	SELECT MAX(St.id) INTO last_id
 	FROM Students St INNER JOIN Schools Sc ON St.school_id = Sc.id; 
 
-	UPDATE Student S
+	UPDATE Students S
 	SET S.username = CONCAT(first_name, '.', last_name, (last_id + 1)), S.id = (last_id + 1), S.password = password
 	WHERE S.ssn = student_ssn AND S.school_id = school_id;
 

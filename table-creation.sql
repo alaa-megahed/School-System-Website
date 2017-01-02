@@ -1,3 +1,4 @@
+-- DROP database School_System; 
  CREATE DATABASE School_System;
 USE School_System; 
 
